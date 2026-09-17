@@ -1,0 +1,33 @@
+# Development / single-machine setup: builds the image locally.
+# For the Raspberry Pi, use deploy/docker-compose.pi.yml (pulls the image built by GitHub Actions).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: texbanner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-texbanner}
+      POSTGRES_DB: texbanner
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U texbanner"]
+      interval: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://texbanner:${POSTGRES_PASSWORD:-texbanner}@db:5432/texbanner
+    ports:
+      - "3000:3000"
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  storage:

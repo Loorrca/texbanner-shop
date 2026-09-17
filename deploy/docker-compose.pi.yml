@@ -1,0 +1,42 @@
+# Raspberry Pi: runs the image built by GitHub Actions (no build on the Pi).
+#   docker compose -f docker-compose.pi.yml pull
+#   docker compose -f docker-compose.pi.yml up -d
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: texbanner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: texbanner
+      TZ: ${TZ:-Africa/Tunis}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U texbanner"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Keeps PostgreSQL modest on a 4 GB Pi
+    shm_size: 128mb
+
+  app:
+    image: ${IMAGE:?set IMAGE in .env, e.g. ghcr.io/<user>/texbanner-shop:latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://texbanner:${POSTGRES_PASSWORD}@db:5432/texbanner
+    ports:
+      # Reachable on the local network at http://<pi-address>:3000
+      - "3000:3000"
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      db: { condition: service_healthy }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  pgdata:
+  storage:
