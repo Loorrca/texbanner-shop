@@ -1,6 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAdminAuthorization } from "@/lib/admin-auth";
 import { DEFAULT_LOCALE, isLocale } from "@/lib/i18n";
+import { fromInternet, maintenanceOn, maintenanceResponse } from "@/lib/maintenance";
+
+/** Order pages stay open during maintenance, so a customer paying right now still sees their order. */
+const ALWAYS_OPEN = /^\/(fr|ar)\/commande(\/|$)/;
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -13,6 +17,13 @@ export function middleware(req: NextRequest) {
       });
     }
     return NextResponse.next();
+  }
+
+  // Maintenance mode holds back visitors from the internet only: the local network,
+  // /admin (above) and the API routes (excluded by the matcher, so Konnect webhooks
+  // keep confirming payments) are never affected.
+  if (maintenanceOn() && fromInternet(req) && !ALWAYS_OPEN.test(pathname)) {
+    return maintenanceResponse();
   }
 
   const first = pathname.split("/")[1] ?? "";

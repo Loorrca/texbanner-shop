@@ -78,6 +78,10 @@ sudo timedatectl set-timezone Africa/Tunis
 mkdir -p ~/texbanner && cd ~/texbanner
 curl -fsSLO https://raw.githubusercontent.com/<user>/texbanner-shop/main/deploy/docker-compose.pi.yml
 curl -fsSL  https://raw.githubusercontent.com/<user>/texbanner-shop/main/deploy/.env.example -o .env
+for s in update.sh backup.sh maintenance.sh; do
+  curl -fsSLO "https://raw.githubusercontent.com/<user>/texbanner-shop/main/deploy/$s"
+done
+chmod +x *.sh
 nano .env                                       # IMAGE, POSTGRES_PASSWORD, ADMIN_PASSWORD, APP_URL…
 docker compose -f docker-compose.pi.yml up -d
 ```
@@ -125,7 +129,27 @@ docker compose -f docker-compose.pi.yml logs -f cloudflared   # "Registered tunn
 
 Then open `https://texbanner.com`. The certificate is issued and renewed by Cloudflare; there is nothing to install on the Pi.
 
-**Notes** — in Cloudflare, SSL/TLS mode **Full** is the right setting with a tunnel. The free plan caps uploads at 100 MB per request, well above the 15 MB limit of the shop. The Pi stays reachable on the local network at `http://<pi-address>:3000`, which is handy for the back office. To take the site offline, stop the `cloudflared` container.
+**Notes** — in Cloudflare, SSL/TLS mode **Full** is the right setting with a tunnel. Turn on **Always Use HTTPS** (SSL/TLS → Edge Certificates) so `http://` visitors are redirected. The free plan caps uploads at 100 MB per request, well above the 15 MB limit of the shop. The Pi stays reachable on the local network at `http://<pi-address>:3000`, which is handy for the back office.
+
+## Maintenance mode
+
+To work on the shop without visitors seeing it, on the Pi:
+
+```bash
+./maintenance.sh on      # visitors get a bilingual "boutique en maintenance" page (HTTP 503)
+./maintenance.sh off     # back to normal
+./maintenance.sh         # current state
+```
+
+It flips `MAINTENANCE` in `.env` and recreates the app container (about ten seconds). Only requests that arrive through the Cloudflare tunnel are held back — the app checks for Cloudflare's `cf-ray` / `cf-connecting-ip` headers (`src/lib/maintenance.ts`), which a request from the local network does not have. So while it is on:
+
+- `http://<pi-address>:3000` works normally, which is how you preview your changes;
+- `/admin` stays reachable, from the local network and from the internet;
+- order pages (`/fr/commande/…`) stay open, so a customer in the middle of a payment still sees their order;
+- `/api/…` is untouched, so Konnect webhooks keep confirming payments;
+- 503 + `Retry-After` tells search engines to come back later instead of de-indexing the shop.
+
+Cutting the site off completely is still possible — `docker compose -f docker-compose.pi.yml stop cloudflared` — but visitors then get a raw Cloudflare error page instead.
 
 **Pi notes** — a Pi 4 (4 GB) runs the shop and PostgreSQL comfortably. Prefer an SSD or a good A2 card: the database writes constantly and cheap cards die. `docker logs` is capped at 3 × 10 MB per container.
 
@@ -175,7 +199,7 @@ src/app/admin/           back office
 src/app/api/             uploads, quote, checkout, konnect webhook, payment retry
 src/components/          UI, ProductPreview (SVG scenes), customiser, cart
 src/db/                  drizzle schema, client, migrate script, catalog seed
-deploy/                  Raspberry Pi compose file, update and backup scripts
+deploy/                  Raspberry Pi compose file, update / backup / maintenance scripts
 .github/workflows/       ARM64 image build and publish to ghcr.io
 src/lib/                 i18n, options/pricing, konnect client, payments sync, config
 drizzle/                 SQL migrations
