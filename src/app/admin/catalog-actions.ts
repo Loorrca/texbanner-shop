@@ -233,3 +233,39 @@ export async function deleteEmblem(id: string): Promise<ActionResult> {
   revalidatePath("/admin/emblems");
   return { ok: true, id };
 }
+
+/* -------------------------------------------------------------- hidden flags */
+
+const HiddenFlagsInput = z.array(z.string().regex(/^[a-z0-9-]{2,60}$/, "Code de drapeau invalide")).max(400);
+
+/**
+ * Replaces the list of flags kept out of the picker.
+ * A flag used as the default value of a product's country option cannot be hidden:
+ * that product would open on a flag nobody is allowed to order.
+ */
+export async function setHiddenFlags(codes: string[]): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  await requireAdmin();
+  const parsed = HiddenFlagsInput.safeParse(codes);
+  if (!parsed.success) return { ok: false, error: firstError(parsed.error) };
+  const wanted = [...new Set(parsed.data)];
+
+  const products = await db.select({ nameFr: schema.products.nameFr, options: schema.products.options }).from(schema.products);
+  for (const p of products) {
+    for (const o of p.options as ProductOption[]) {
+      if (o.type === "country" && wanted.includes(o.default)) {
+        return {
+          ok: false,
+          error: `Impossible de masquer « ${o.default} » : c'est le drapeau par défaut du produit « ${p.nameFr} » (option « ${o.labelFr} »). Changez d'abord ce choix par défaut.`,
+        };
+      }
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(schema.hiddenFlags);
+    if (wanted.length) await tx.insert(schema.hiddenFlags).values(wanted.map((code) => ({ code })));
+  });
+  revalidatePath("/admin/emblems");
+  revalidatePath("/", "layout");
+  return { ok: true, count: wanted.length };
+}

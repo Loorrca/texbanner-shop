@@ -2,10 +2,18 @@
 import { asc } from "drizzle-orm";
 import Link from "next/link";
 import { db, schema } from "@/db";
-import { BUILTIN_EXTRAS, GROUP_LABELS } from "@/lib/countries";
+import { HiddenFlagsEditor } from "@/components/admin/HiddenFlagsEditor";
+import { BUILTIN_EXTRAS, GROUP_LABELS, sortedCountries } from "@/lib/countries";
+import { getCustomFlags, getHiddenFlags } from "@/lib/emblems";
 
 export default async function AdminEmblems() {
-  const emblems = await db.select().from(schema.emblems).orderBy(asc(schema.emblems.sort), asc(schema.emblems.nameFr));
+  const [emblems, customFlags, hiddenFlags] = await Promise.all([
+    db.select().from(schema.emblems).orderBy(asc(schema.emblems.sort), asc(schema.emblems.nameFr)),
+    getCustomFlags(),
+    getHiddenFlags(),
+  ]);
+  // Nothing filtered out here: the editor has to be able to list a flag in order to un-hide it.
+  const allFlags = sortedCountries("fr", customFlags);
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -41,6 +49,8 @@ export default async function AdminEmblems() {
           {!emblems.length && <li className="px-5 py-8 text-center text-sm text-stone-500">Aucun emblème ajouté pour l&apos;instant.</li>}
         </ul>
       </section>
+
+      <HiddenFlagsEditor all={allFlags} initial={hiddenFlags} />
 
       <section className="rounded-xl bg-white p-5 ring-1 ring-stone-200">
         <h2 className="font-extrabold">Déjà inclus</h2>

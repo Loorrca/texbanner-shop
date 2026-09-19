@@ -112,6 +112,8 @@ export function resolveSelections(
   locale: string,
   /** Active custom emblems (from /admin/emblems), accepted by country options */
   customFlags: CustomFlag[] = [],
+  /** Flag codes hidden in /admin/emblems: rejected like an unknown code */
+  hiddenFlags: string[] = [],
 ): { unitPrice: number; resolved: ResolvedSelection[] } {
   let unitPrice = basePrice;
   const resolved: ResolvedSelection[] = [];
@@ -131,7 +133,7 @@ export function resolveSelections(
       }
       case "country": {
         const code = raw ?? o.default;
-        if (!isCountryCode(code, customFlags)) throw new SelectionError(`Invalid country for ${o.key}`);
+        if (!isCountryCode(code, customFlags, hiddenFlags)) throw new SelectionError(`Invalid country for ${o.key}`);
         unitPrice += o.priceDelta;
         resolved.push({ key: o.key, label: optLabel, value: code, valueLabel: countryName(code, locale, customFlags), priceDelta: o.priceDelta, type: o.type });
         break;

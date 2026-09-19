@@ -66,18 +66,22 @@ export function countryName(code: string, locale: string, custom: CustomFlag[] =
 
 export type FlagEntry = { code: string; name: string; group: FlagGroup };
 
-/** Ordered picker entries: pinned countries, all countries A–Z, then organisations, sport, regions, others. */
-export function sortedCountries(locale: string, custom: CustomFlag[] = []): FlagEntry[] {
+/**
+ * Ordered picker entries: pinned countries, all countries A–Z, then organisations, sport, regions, others.
+ * `hidden` holds the codes taken out of the picker in /admin/emblems.
+ */
+export function sortedCountries(locale: string, custom: CustomFlag[] = [], hidden: string[] = []): FlagEntry[] {
   const collator = new Intl.Collator(locale === "ar" ? "ar" : "fr");
-  const pinned = ["tn", "dz", "ly", "ma", "fr", "ps"].filter((c) => COUNTRY_CODES.includes(c));
+  const off = new Set(hidden);
+  const pinned = ["tn", "dz", "ly", "ma", "fr", "ps"].filter((c) => COUNTRY_CODES.includes(c) && !off.has(c));
   const byName = (a: FlagEntry, b: FlagEntry) => collator.compare(a.name, b.name);
-  const countries = COUNTRY_CODES.filter((c) => !pinned.includes(c))
+  const countries = COUNTRY_CODES.filter((c) => !pinned.includes(c) && !off.has(c))
     .map((code) => ({ code, name: countryName(code, locale), group: "country" as const }))
     .sort(byName);
   const others: FlagEntry[] = [
     ...BUILTIN_EXTRAS.map((e) => ({ code: e.code, name: locale === "ar" ? e.ar : e.fr, group: e.group })),
     ...custom.map((c) => ({ code: c.code, name: locale === "ar" ? c.nameAr : c.nameFr, group: c.group })),
-  ];
+  ].filter((e) => !off.has(e.code));
   const order: FlagGroup[] = ["organisation", "sport", "region", "autre"];
   return [
     ...pinned.map((code) => ({ code, name: countryName(code, locale), group: "country" as const })),
@@ -86,6 +90,8 @@ export function sortedCountries(locale: string, custom: CustomFlag[] = []): Flag
   ];
 }
 
-export function isCountryCode(code: unknown, custom: CustomFlag[] = []): code is string {
-  return typeof code === "string" && (COUNTRY_CODES.includes(code) || EXTRA_BY_CODE.has(code) || custom.some((c) => c.code === code));
+/** A hidden code is rejected here too, so a hidden flag cannot be ordered by crafting a request. */
+export function isCountryCode(code: unknown, custom: CustomFlag[] = [], hidden: string[] = []): code is string {
+  if (typeof code !== "string" || hidden.includes(code)) return false;
+  return COUNTRY_CODES.includes(code) || EXTRA_BY_CODE.has(code) || custom.some((c) => c.code === code);
 }

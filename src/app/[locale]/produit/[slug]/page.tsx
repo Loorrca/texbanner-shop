@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Customizer } from "@/components/product/Customizer";
 import { getProduct } from "@/lib/catalog";
-import { getCustomFlags } from "@/lib/emblems";
+import { getCustomFlags, getHiddenFlags } from "@/lib/emblems";
 import { getDict, isLocale } from "@/lib/i18n";
 
 type P = { params: Promise<{ locale: string; slug: string }> };
@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: P): Promise<Metadata> {
 export default async function ProductPage({ params }: P) {
   const { locale, slug } = await params;
   if (!isLocale(locale)) notFound();
-  const [product, customFlags] = await Promise.all([getProduct(slug), getCustomFlags()]);
+  const [product, customFlags, hiddenFlags] = await Promise.all([getProduct(slug), getCustomFlags(), getHiddenFlags()]);
   if (!product) notFound();
   const t = getDict(locale);
   const isFlag = !!product.preview && !product.preview.startsWith("beach");
@@ -45,6 +45,7 @@ export default async function ProductPage({ params }: P) {
         product={{ slug: product.slug, nameFr: product.nameFr, nameAr: product.nameAr, preview: product.preview, images: product.images, basePrice: product.basePrice, options: product.options }}
         t={{ ...t.product, cart: t.cart.title }}
         customFlags={customFlags}
+        hiddenFlags={hiddenFlags}
       />
     </div>
   );

@@ -22,9 +22,10 @@ type Props = {
   product: { slug: string; nameFr: string; nameAr: string; preview: string | null; images: string[]; basePrice: number; options: ProductOption[] };
   t: Strings;
   customFlags?: CustomFlag[];
+  hiddenFlags?: string[];
 };
 
-export function Customizer({ locale, product, t, customFlags = [] }: Props) {
+export function Customizer({ locale, product, t, customFlags = [], hiddenFlags = [] }: Props) {
   const { add } = useCart();
   const [selections, setSelections] = useState<Selections>(() => defaultSelections(product.options));
   const [files, setFiles] = useState<Record<string, UploadedFile | null>>({});
@@ -50,11 +51,11 @@ export function Customizer({ locale, product, t, customFlags = [] }: Props) {
     try {
       // Pricing ignores "required" here: we only want the running price while the form is incomplete.
       const lenient = product.options.map((o) => ("required" in o ? { ...o, required: false } : o)) as ProductOption[];
-      return resolveSelections(product.basePrice, lenient, selectionsWithUploads, locale, customFlags);
+      return resolveSelections(product.basePrice, lenient, selectionsWithUploads, locale, customFlags, hiddenFlags);
     } catch {
       return { unitPrice: product.basePrice };
     }
-  }, [product, selectionsWithUploads, locale, customFlags]);
+  }, [product, selectionsWithUploads, locale, customFlags, hiddenFlags]);
 
   const logoUrl = Object.values(files).find((f) => f?.localUrl)?.localUrl ?? null;
   const choiceImage = product.options
@@ -65,7 +66,7 @@ export function Customizer({ locale, product, t, customFlags = [] }: Props) {
 
   function addToCart() {
     try {
-      resolveSelections(product.basePrice, product.options, selectionsWithUploads, locale, customFlags);
+      resolveSelections(product.basePrice, product.options, selectionsWithUploads, locale, customFlags, hiddenFlags);
     } catch {
       const first = product.options.find(
         (o) => isVisible(o, product.options, selections) && "required" in o && o.required && !selectionsWithUploads[o.key]?.trim(),
@@ -148,7 +149,7 @@ export function Customizer({ locale, product, t, customFlags = [] }: Props) {
                     })}
                   </div>
                 )}
-                {o.type === "country" && <CountryPicker id={id} value={selections[o.key] ?? o.default} onChange={(v) => set(o.key, v)} locale={locale} placeholder={t.searchCountry} customFlags={customFlags} />}
+                {o.type === "country" && <CountryPicker id={id} value={selections[o.key] ?? o.default} onChange={(v) => set(o.key, v)} locale={locale} placeholder={t.searchCountry} customFlags={customFlags} hiddenFlags={hiddenFlags} />}
                 {o.type === "text" &&
                   (o.multiline ? (
                     <textarea id={id} rows={2} maxLength={o.maxLength} dir="auto" value={selections[o.key] ?? ""} onChange={(e) => set(o.key, e.target.value)} placeholder={locale === "ar" ? o.placeholderAr : o.placeholderFr} className={`field ${isMissing ? "border-brand" : ""}`} />

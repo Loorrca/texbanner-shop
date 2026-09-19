@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/db";
 import { shippingFor, SHOP } from "./config";
-import { getCustomFlags } from "./emblems";
+import { getCustomFlags, getHiddenFlags } from "./emblems";
 import { resolveSelections, SelectionError, type ResolvedSelection } from "./options";
 
 export const CartItemsSchema = z
@@ -36,7 +36,7 @@ export async function priceCart(items: z.infer<typeof CartItemsSchema>, locale: 
   const slugs = [...new Set(items.map((i) => i.slug))];
   const products = await db.query.products.findMany({ where: and(inArray(schema.products.slug, slugs), eq(schema.products.active, true)) });
   const bySlug = new Map(products.map((p) => [p.slug, p]));
-  const customFlags = await getCustomFlags();
+  const [customFlags, hiddenFlags] = await Promise.all([getCustomFlags(), getHiddenFlags()]);
 
   const lines: PricedLine[] = [];
   const invalid: number[] = [];
@@ -44,7 +44,7 @@ export async function priceCart(items: z.infer<typeof CartItemsSchema>, locale: 
     const p = bySlug.get(item.slug);
     if (!p) return invalid.push(index);
     try {
-      const { unitPrice, resolved } = resolveSelections(p.basePrice, p.options, item.selections, locale, customFlags);
+      const { unitPrice, resolved } = resolveSelections(p.basePrice, p.options, item.selections, locale, customFlags, hiddenFlags);
       if (unitPrice < 0) throw new SelectionError("negative price");
       lines.push({
         index,

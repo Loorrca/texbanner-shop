@@ -20,7 +20,7 @@ Online shop for **Sté Tex Banner** (Bab Saadoune, Tunis): flags, garlands, bann
 | Order page | Private URL with a random token; auto-refreshes while payment is pending; retry-payment button |
 | Admin `/admin` | Orders by status, production details (flags, texts, logo downloads), status updates |
 | Catalogue admin | Category tabs with **+ Catégorie** / **+ Nouveau produit**, photo upload (auto-resized WebP), bilingual texts, prices, **options editor** (choice lists, flag picker, free text, customer logo, conditional options), drawn-preview picker, duplicate / hide / delete |
-| Flags & emblems | 249 countries + UN, EU, Arab League, ASEAN, England, Scotland… built in; extra emblems can be added in `/admin/emblems` |
+| Flags & emblems | 249 countries + UN, EU, Arab League, ASEAN, England, Scotland… built in; extra emblems can be added in `/admin/emblems`, and any flag can be taken out of the picker there (**Drapeaux masqués**) — hidden codes are refused server-side too, and a flag that is a product's default cannot be hidden |
 
 ## ⚠️ Before going live
 

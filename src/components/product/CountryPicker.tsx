@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { flagSrc, GROUP_LABELS, sortedCountries, type CustomFlag } from "@/lib/countries";
 
-export function CountryPicker({ value, onChange, locale, placeholder, id, customFlags = [] }: { value: string; onChange: (code: string) => void; locale: string; placeholder: string; id: string; customFlags?: CustomFlag[] }) {
+export function CountryPicker({ value, onChange, locale, placeholder, id, customFlags = [], hiddenFlags = [] }: { value: string; onChange: (code: string) => void; locale: string; placeholder: string; id: string; customFlags?: CustomFlag[]; hiddenFlags?: string[] }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
-  const countries = useMemo(() => sortedCountries(locale, customFlags), [locale, customFlags]);
+  const countries = useMemo(() => sortedCountries(locale, customFlags, hiddenFlags), [locale, customFlags, hiddenFlags]);
   const current = countries.find((c) => c.code === value);
 
   const filtered = useMemo(() => {

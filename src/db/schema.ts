@@ -121,6 +121,16 @@ export const emblems = pgTable("emblems", {
   createdAt: createdAt(),
 });
 
+/**
+ * Flags kept out of the picker (chosen in /admin/emblems). Any code can be listed:
+ * an ISO country, a built-in organisation or region, or a custom "x-" emblem.
+ * Existing orders are unaffected — they store their own snapshot of what was chosen.
+ */
+export const hiddenFlags = pgTable("hidden_flags", {
+  code: text("code").primaryKey(),
+  createdAt: createdAt(),
+});
+
 export const categoriesRelations = relations(categories, ({ many }) => ({ products: many(products) }));
 export const productsRelations = relations(products, ({ one }) => ({
   category: one(categories, { fields: [products.categoryId], references: [categories.id] }),
