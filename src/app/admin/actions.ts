@@ -18,6 +18,18 @@ export async function updateOrderStatus(formData: FormData) {
   revalidatePath("/admin");
 }
 
+export async function updateQuoteStatus(formData: FormData) {
+  await requireAdmin();
+  const id = z.string().uuid().parse(formData.get("id"));
+  const status = z.enum(schema.quoteStatus.enumValues).parse(formData.get("status"));
+  // answeredAt records when the shop first replied, for the "waiting" column in the list.
+  const current = await db.query.quotes.findFirst({ where: eq(schema.quotes.id, id) });
+  const answeredAt = current?.answeredAt ?? (status === "NEW" ? null : new Date());
+  await db.update(schema.quotes).set({ status, answeredAt }).where(eq(schema.quotes.id, id));
+  revalidatePath(`/admin/quotes/${id}`);
+  revalidatePath("/admin/quotes");
+}
+
 export async function recheckPayment(formData: FormData) {
   await requireAdmin();
   const id = z.string().uuid().parse(formData.get("id"));

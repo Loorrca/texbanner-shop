@@ -7,10 +7,13 @@ import { LineThumb } from "./LineThumb";
 import { useQuote } from "./useQuote";
 
 type T = { title: string; empty: string; continue: string; subtotal: string; shipping: string; free: string; total: string; checkout: string; remove: string; freeFrom: string; unavailable: string };
+type QuoteT = { ctaCart: string; bulkHint: string };
 
-export function CartView({ locale, t, freeFrom }: { locale: string; t: T; freeFrom: number }) {
+export function CartView({ locale, t, tq, freeFrom, quoteThreshold = 20 }: { locale: string; t: T; tq: QuoteT; freeFrom: number; quoteThreshold?: number }) {
   const { lines, ready, setQuantity, remove } = useCart();
   const { quote, loading } = useQuote(lines, ready, locale);
+  // Suggested as soon as any one line reaches the threshold.
+  const bulk = lines.some((l) => l.quantity >= quoteThreshold);
 
   if (!ready) return <div className="h-64 animate-pulse rounded-2xl bg-stone-100" />;
   if (!lines.length)
@@ -57,9 +60,15 @@ export function CartView({ locale, t, freeFrom }: { locale: string; t: T; freeFr
         {quote && quote.shipping > 0 && (
           <p className="mt-3 text-xs text-stone-500">{t.freeFrom} {formatTND(freeFrom, locale)}</p>
         )}
-        <Link href={`/${locale}/commande`} aria-disabled={!quote || quote.invalid.length > 0} className={`btn-primary mt-5 w-full ${!quote || quote.invalid.length ? "pointer-events-none opacity-50" : ""}`}>
-          {t.checkout}
-        </Link>
+        {bulk && <p className="mt-4 rounded-lg bg-gold/10 px-3 py-2 text-center text-sm font-semibold text-[#8a6d1c]">{tq.bulkHint}</p>}
+        <div className={`mt-5 flex flex-col gap-2 ${bulk ? "flex-col-reverse" : ""}`}>
+          <Link href={`/${locale}/commande`} aria-disabled={!quote || quote.invalid.length > 0} className={`${bulk ? "btn-ghost" : "btn-primary"} w-full ${!quote || quote.invalid.length ? "pointer-events-none opacity-50" : ""}`}>
+            {t.checkout}
+          </Link>
+          <Link href={`/${locale}/devis`} className={`${bulk ? "btn-primary" : "btn-ghost"} w-full`}>
+            {tq.ctaCart}
+          </Link>
+        </div>
       </aside>
     </div>
   );

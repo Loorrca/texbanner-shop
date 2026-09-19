@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Customizer } from "@/components/product/Customizer";
 import { getProduct } from "@/lib/catalog";
 import { getCustomFlags, getHiddenFlags } from "@/lib/emblems";
+import { QUOTE_THRESHOLD } from "@/lib/quotes";
 import { getDict, isLocale } from "@/lib/i18n";
 
 type P = { params: Promise<{ locale: string; slug: string }> };
@@ -43,9 +44,10 @@ export default async function ProductPage({ params }: P) {
       <Customizer
         locale={locale}
         product={{ slug: product.slug, nameFr: product.nameFr, nameAr: product.nameAr, preview: product.preview, images: product.images, basePrice: product.basePrice, options: product.options }}
-        t={{ ...t.product, cart: t.cart.title }}
+        t={{ ...t.product, cart: t.cart.title, quoteCta: t.quote.cta, bulkHint: t.quote.bulkHint }}
         customFlags={customFlags}
         hiddenFlags={hiddenFlags}
+        quoteThreshold={QUOTE_THRESHOLD}
       />
     </div>
   );

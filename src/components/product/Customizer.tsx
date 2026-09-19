@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { ProductPreview } from "@/components/ProductPreview";
 import { useCart } from "@/components/cart/CartProvider";
@@ -15,6 +16,7 @@ type Strings = {
   addToCart: string; added: string; quantity: string; unitPrice: string; total: string; preview: string; photos: string;
   uploadHint: string; uploading: string; uploaded: string; remove: string; searchCountry: string; previewNote: string;
   missing: string; uploadError: string; cart: string; material: string;
+  quoteCta: string; bulkHint: string;
 };
 
 type Props = {
@@ -23,10 +25,13 @@ type Props = {
   t: Strings;
   customFlags?: CustomFlag[];
   hiddenFlags?: string[];
+  /** Quantity from which a quote is suggested instead of a direct order */
+  quoteThreshold?: number;
 };
 
-export function Customizer({ locale, product, t, customFlags = [], hiddenFlags = [] }: Props) {
+export function Customizer({ locale, product, t, customFlags = [], hiddenFlags = [], quoteThreshold = 20 }: Props) {
   const { add } = useCart();
+  const router = useRouter();
   const [selections, setSelections] = useState<Selections>(() => defaultSelections(product.options));
   const [files, setFiles] = useState<Record<string, UploadedFile | null>>({});
   const [quantity, setQuantity] = useState(1);
@@ -63,8 +68,9 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
     .map((o) => (o.type === "select" ? o.choices.find((c) => c.value === selections[o.key])?.image : undefined))
     .find(Boolean);
   const mainPhoto = photo ?? choiceImage ?? product.images[0];
+  const bulk = quantity >= quoteThreshold;
 
-  function addToCart() {
+  function addToCart(): boolean {
     try {
       resolveSelections(product.basePrice, product.options, selectionsWithUploads, locale, customFlags, hiddenFlags);
     } catch {
@@ -72,7 +78,7 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
         (o) => isVisible(o, product.options, selections) && "required" in o && o.required && !selectionsWithUploads[o.key]?.trim(),
       );
       setMissing(first?.key ?? "_");
-      return;
+      return false;
     }
     const visibleSelections: Selections = {};
     for (const o of product.options) {
@@ -91,6 +97,12 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
       uploadNames: Object.fromEntries(Object.values(files).filter((f): f is UploadedFile => !!f).map((f) => [f.id, f.name])),
     });
     setAdded(true);
+    return true;
+  }
+
+  /** The quote page works from the cart, so the configuration is added first, then we go there. */
+  function requestQuote() {
+    if (addToCart()) router.push(`/${locale}/devis`);
   }
 
   return (
@@ -184,7 +196,16 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
               <div className="text-2xl font-extrabold">{formatTND(unitPrice * quantity, locale)}</div>
             </div>
           </div>
-          <button type="button" onClick={addToCart} className="btn-primary mt-5 w-full text-lg">{added ? t.added : t.addToCart}</button>
+          {bulk && <p className="mt-4 rounded-lg bg-gold/10 px-3 py-2 text-center text-sm font-semibold text-[#8a6d1c]">{t.bulkHint}</p>}
+          {/* Above the threshold the quote becomes the main action, but buying directly stays possible. */}
+          <div className={`mt-5 flex flex-col gap-2 ${bulk ? "flex-col-reverse" : ""}`}>
+            <button type="button" onClick={addToCart} className={`${bulk ? "btn-ghost" : "btn-primary"} w-full text-lg`}>
+              {added ? t.added : t.addToCart}
+            </button>
+            <button type="button" onClick={requestQuote} className={`${bulk ? "btn-primary" : "btn-ghost"} w-full text-lg`}>
+              {t.quoteCta}
+            </button>
+          </div>
           {added && (
             <Link href={`/${locale}/panier`} className="mt-3 block text-center text-sm font-bold text-brand hover:underline">{t.cart} →</Link>
           )}

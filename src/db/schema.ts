@@ -93,6 +93,53 @@ export const orderItems = pgTable("order_items", {
   selections: jsonb("selections").$type<ResolvedSelection[]>().notNull(),
 });
 
+/* -------------------------------------------------------------------- quotes */
+
+/** Quote requests ("demander un devis"), for bulk orders priced case by case. */
+export const quoteStatus = pgEnum("quote_status", ["NEW", "ANSWERED", "ACCEPTED", "DECLINED"]);
+export type QuoteStatus = (typeof quoteStatus.enumValues)[number];
+
+export const quotes = pgTable(
+  "quotes",
+  {
+    id: id(),
+    /** Human-readable number, e.g. DV-7K2QX9MP */
+    number: text("number").notNull().unique(),
+    /** Secret in the customer's quote URL */
+    accessToken: text("access_token").notNull().unique(),
+    status: quoteStatus("status").notNull().default("NEW"),
+    locale: text("locale").notNull().default("fr"),
+    firstName: text("first_name").notNull(),
+    lastName: text("last_name").notNull(),
+    company: text("company").notNull().default(""),
+    email: text("email").notNull(),
+    phone: text("phone").notNull(),
+    governorate: text("governorate").notNull().default(""),
+    city: text("city").notNull().default(""),
+    /** What the customer needs, in their own words */
+    message: text("message").notNull().default(""),
+    /** Free text: "avant le 15 mars", "fin du mois"… */
+    deadline: text("deadline").notNull().default(""),
+    /** Sum at catalogue prices, for reference only — the real price is negotiated */
+    indicativeTotal: integer("indicative_total").notNull().default(0),
+    /** Set once the shop has answered, for the admin list */
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+  },
+  (t) => [index("quotes_created_idx").on(t.createdAt)],
+);
+
+export const quoteItems = pgTable("quote_items", {
+  id: id(),
+  quoteId: text("quote_id").notNull().references(() => quotes.id, { onDelete: "cascade" }),
+  productId: text("product_id").references(() => products.id, { onDelete: "set null" }),
+  productName: text("product_name").notNull(),
+  unitPrice: integer("unit_price").notNull(),
+  quantity: integer("quantity").notNull(),
+  selections: jsonb("selections").$type<ResolvedSelection[]>().notNull(),
+});
+
 export const uploads = pgTable("uploads", {
   id: id(),
   originalName: text("original_name").notNull(),
@@ -100,6 +147,11 @@ export const uploads = pgTable("uploads", {
   mime: text("mime").notNull(),
   size: integer("size").notNull(),
   orderItemId: text("order_item_id").references(() => orderItems.id, { onDelete: "set null" }),
+  /**
+   * A quote may reference the same file as a later order, so this link is not exclusive:
+   * only orderItemId decides whether a file can still be attached to an order.
+   */
+  quoteItemId: text("quote_item_id").references(() => quoteItems.id, { onDelete: "set null" }),
   createdAt: createdAt(),
 });
 
@@ -141,8 +193,15 @@ export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   product: one(products, { fields: [orderItems.productId], references: [products.id] }),
   uploads: many(uploads),
 }));
+export const quotesRelations = relations(quotes, ({ many }) => ({ items: many(quoteItems) }));
+export const quoteItemsRelations = relations(quoteItems, ({ one, many }) => ({
+  quote: one(quotes, { fields: [quoteItems.quoteId], references: [quotes.id] }),
+  product: one(products, { fields: [quoteItems.productId], references: [products.id] }),
+  uploads: many(uploads),
+}));
 export const uploadsRelations = relations(uploads, ({ one }) => ({
   orderItem: one(orderItems, { fields: [uploads.orderItemId], references: [orderItems.id] }),
+  quoteItem: one(quoteItems, { fields: [uploads.quoteItemId], references: [quoteItems.id] }),
 }));
 
 export type Product = typeof products.$inferSelect;
@@ -150,3 +209,5 @@ export type Category = typeof categories.$inferSelect;
 export type Emblem = typeof emblems.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
+export type Quote = typeof quotes.$inferSelect;
+export type QuoteItem = typeof quoteItems.$inferSelect;

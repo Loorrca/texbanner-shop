@@ -18,6 +18,7 @@ Online shop for **Sté Tex Banner** (Bab Saadoune, Tunis): flags, garlands, bann
 | Checkout | Tunisian address form (24 governorates, phone validation) → order created → redirect to Konnect |
 | Payment confirmation | Konnect webhook + return page, both verified against the Konnect API (amount, currency, order number), idempotent |
 | Order page | Private URL with a random token; auto-refreshes while payment is pending; retry-payment button |
+| Devis | « Demander un devis » on any product and on the cart, for bulk orders priced case by case. The request carries the exact specification, is re-validated server-side, and lands in `/admin/quotes` with an optional email notification |
 | Admin `/admin` | Orders by status, production details (flags, texts, logo downloads), status updates |
 | Catalogue admin | Category tabs with **+ Catégorie** / **+ Nouveau produit**, photo upload (auto-resized WebP), bilingual texts, prices, **options editor** (choice lists, flag picker, free text, customer logo, conditional options), drawn-preview picker, duplicate / hide / delete |
 | Flags & emblems | 249 countries + UN, EU, Arab League, ASEAN, England, Scotland… built in; extra emblems can be added in `/admin/emblems`, and any flag can be taken out of the picker there (**Drapeaux masqués**) — hidden codes are refused server-side too, and a flag that is a product's default cannot be hidden |
@@ -152,6 +153,14 @@ It flips `MAINTENANCE` in `.env` and recreates the app container (about ten seco
 Cutting the site off completely is still possible — `docker compose -f docker-compose.pi.yml stop cloudflared` — but visitors then get a raw Cloudflare error page instead.
 
 **Pi notes** — a Pi 4 (4 GB) runs the shop and PostgreSQL comfortably. Prefer an SSD or a good A2 card: the database writes constantly and cheap cards die. `docker logs` is capped at 3 × 10 MB per container.
+
+## Quote requests (devis)
+
+The shop prices a line as unit price × quantity, with no volume discount — so bulk buyers are steered to a quote instead. Above `QUOTE_THRESHOLD_QTY` (20 by default) the « Demander un devis » button becomes the main action on the product page and in the cart, with a note about degressive pricing; buying directly always stays possible.
+
+A request is created from the current cart, so it carries the exact specification (country, size, finish, uploaded logo). The lines are re-priced server-side exactly as for an order, which both rejects impossible options and gives the shop an indicative catalogue total to quote against. Requests appear in **`/admin/quotes`**, with a counter on the nav so a new one is noticed, the customer's files to download, and a status (Nouvelle / Répondu / Acceptée / Close).
+
+**Email notification** is optional. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `QUOTE_NOTIFY_EMAIL`; for Gmail, use an *app password* (Google account → 2-step verification → App passwords), never the account password. The mail is sent with `Reply-To` set to the customer, so replying to the notification answers them directly. Leave `SMTP_HOST` empty to disable mail: requests are still saved and visible in the back office. Mail is fire-and-forget — a dead mail server logs an error and never loses a quote or shows the customer a failure.
 
 ## Health check
 
