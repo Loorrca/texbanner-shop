@@ -96,7 +96,36 @@ The shop is then on `http://<pi-address>:3000`, the back office on `/admin`. Con
 30 2 * * * /home/pi/texbanner/backup.sh
 ```
 
-**Going public (needed for payments).** Konnect confirms payments by calling `APP_URL/api/konnect/webhook`, so the Pi must be reachable over HTTPS from the internet. On a local network only, checkout stays at "Paiement échoué" and the order keeps a retry button. The usual options are a Cloudflare Tunnel (free HTTPS, no port forwarding, works behind a shared IP) or port forwarding 80/443 with Caddy for the certificate. Once that is in place, set `APP_URL` to the public https address and restart the app.
+## Publishing with Cloudflare Tunnel (HTTPS, no open ports)
+
+Konnect confirms payments by calling `APP_URL/api/konnect/webhook`, so the shop needs a public HTTPS address. A Cloudflare Tunnel provides one for free: the Pi opens an outgoing connection to Cloudflare, and no router port is opened.
+
+**1. Domain on Cloudflare** — create a free account, *Add a site*, enter the domain. Copy the two nameservers it gives you into the registrar (GoDaddy → Domain → DNS → Nameservers → custom). Check the DNS records Cloudflare imported, in particular MX records if the company receives email on the domain. Activation usually takes under an hour.
+
+**2. Create the tunnel** — Cloudflare dashboard → **Zero Trust** → Networks → **Tunnels** → *Create a tunnel* → **Cloudflared** → name it (e.g. `pi-texbanner`). The install screen shows a token: copy it (a long string, treat it as a password).
+
+**3. Routes** — on the tunnel's *Routes* tab, add a published application:
+
+| Hostname | Service |
+|---|---|
+| `texbanner.com` | `http://app:3000` |
+| `www.texbanner.com` | `http://app:3000` |
+
+`app` is the service name inside the Compose network, so the tunnel reaches the shop without going through the Pi's ports.
+
+**4. On the Pi**
+
+```bash
+cd ~/texbanner
+curl -fsSLO https://raw.githubusercontent.com/<user>/texbanner-shop/main/deploy/docker-compose.pi.yml
+nano .env           # TUNNEL_TOKEN="…"  and  APP_URL="https://texbanner.com"
+docker compose -f docker-compose.pi.yml up -d
+docker compose -f docker-compose.pi.yml logs -f cloudflared   # "Registered tunnel connection"
+```
+
+Then open `https://texbanner.com`. The certificate is issued and renewed by Cloudflare; there is nothing to install on the Pi.
+
+**Notes** — in Cloudflare, SSL/TLS mode **Full** is the right setting with a tunnel. The free plan caps uploads at 100 MB per request, well above the 15 MB limit of the shop. The Pi stays reachable on the local network at `http://<pi-address>:3000`, which is handy for the back office. To take the site offline, stop the `cloudflared` container.
 
 **Pi notes** — a Pi 4 (4 GB) runs the shop and PostgreSQL comfortably. Prefer an SSD or a good A2 card: the database writes constantly and cheap cards die. `docker logs` is capped at 3 × 10 MB per container.
 

@@ -27,7 +27,8 @@ services:
     environment:
       DATABASE_URL: postgresql://texbanner:${POSTGRES_PASSWORD}@db:5432/texbanner
     ports:
-      # Reachable on the local network at http://<pi-address>:3000
+      # Local network access (admin, testing): http://<pi-address>:3000
+      # Public visitors come through the tunnel, not this port.
       - "3000:3000"
     volumes:
       - storage:/app/storage
@@ -36,6 +37,23 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "3" }
+
+  # Publishes the shop on https://texbanner.com without opening any router port.
+  # Create the tunnel in Cloudflare (Zero Trust → Networks → Tunnels), copy its token
+  # into TUNNEL_TOKEN, and point the public hostname at the service http://app:3000.
+  # Leave TUNNEL_TOKEN empty to run local-network-only: the container then just idles.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env, or comment out this service}
+      TZ: ${TZ:-Africa/Tunis}
+    depends_on:
+      app: { condition: service_started }
+    logging:
+      driver: json-file
+      options: { max-size: "5m", max-file: "2" }
 
 volumes:
   pgdata:
