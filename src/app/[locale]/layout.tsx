@@ -17,7 +17,8 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     title: { default: `Tex Banner — ${t.tagline}`, template: "%s · Tex Banner" },
     description: t.hero.subtitle,
     metadataBase: new URL(process.env.APP_URL ?? "http://localhost:3000"),
-    alternates: { languages: { fr: "/fr", ar: "/ar" } },
+    // No `alternates` here on purpose: Next.js would apply them to every page below,
+    // so each page declares its own canonical and hreflang (src/lib/seo.ts).
   };
 }
 

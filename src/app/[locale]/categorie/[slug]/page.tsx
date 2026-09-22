@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/ProductCard";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getCategories, getCategory } from "@/lib/catalog";
-import { getDict, isLocale } from "@/lib/i18n";
+import { getDict, isLocale, type Locale } from "@/lib/i18n";
+import { localeAlternates } from "@/lib/seo";
+import { breadcrumbJsonLd } from "@/lib/structured-data";
 
 type P = { params: Promise<{ locale: string; slug: string }> };
 
@@ -11,7 +14,11 @@ export async function generateMetadata({ params }: P): Promise<Metadata> {
   const { locale, slug } = await params;
   const c = await getCategory(slug);
   if (!c) return {};
-  return { title: locale === "ar" ? c.nameAr : c.nameFr, description: locale === "ar" ? c.descAr : c.descFr };
+  return {
+    title: locale === "ar" ? c.nameAr : c.nameFr,
+    description: locale === "ar" ? c.descAr : c.descFr,
+    alternates: isLocale(locale) ? localeAlternates(locale as Locale, `/categorie/${slug}`) : undefined,
+  };
 }
 
 export default async function CategoryPage({ params }: P) {
@@ -22,6 +29,12 @@ export default async function CategoryPage({ params }: P) {
   const t = getDict(locale);
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
+      <JsonLd
+        data={breadcrumbJsonLd(locale, [
+          { name: t.nav.shop, path: "" },
+          { name: locale === "ar" ? category.nameAr : category.nameFr, path: `/categorie/${category.slug}` },
+        ])}
+      />
       <nav className="text-sm text-stone-500">
         <Link href={`/${locale}`} className="hover:text-brand">{t.nav.shop}</Link> / <span className="text-ink">{locale === "ar" ? category.nameAr : category.nameFr}</span>
       </nav>

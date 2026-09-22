@@ -162,6 +162,16 @@ A request is created from the current cart, so it carries the exact specificatio
 
 **Email notification** is optional. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` and `QUOTE_NOTIFY_EMAIL`; for Gmail, use an *app password* (Google account → 2-step verification → App passwords), never the account password. The mail is sent with `Reply-To` set to the customer, so replying to the notification answers them directly. Leave `SMTP_HOST` empty to disable mail: requests are still saved and visible in the back office. Mail is fire-and-forget — a dead mail server logs an error and never loses a quote or shows the customer a failure.
 
+## Search engines
+
+- `/sitemap.xml` is generated from the database: home, categories and products, in both languages, each with its `hreflang` alternates. `/robots.txt` points at it and excludes the back office, the API and the cart / order / quote pages.
+- Both are **rendered per request**. They must not be static: the image is built in CI without `APP_URL`, so a static `robots.txt` would ship pointing at `http://localhost:3000`.
+- Every indexable page declares its own `canonical` and its `fr` / `ar` / `x-default` alternates (`src/lib/seo.ts`). Do not put `alternates` back in `src/app/[locale]/layout.tsx`: Next.js applies layout metadata to every page below it, which made each product page claim the home page as its translation.
+- Structured data (`src/lib/structured-data.ts`): `Store` on the home page, `Product` with an offer on product pages, `BreadcrumbList` on category and product pages.
+- **`Product` markup publishes the price to Google.** While the catalogue still holds placeholder prices, search results can show them. Fix the prices before inviting anyone to the site.
+- `SHOP.hours` in `src/lib/config.ts` is empty on purpose. Fill it in schema.org form (`["Mo-Fr 08:30-17:30", "Sa 08:30-13:00"]`) once confirmed; wrong opening hours are worse than none.
+- Off-site, what matters most for a local shop is a **Google Business Profile**, then Search Console (verify the domain with a Cloudflare DNS TXT record and submit the sitemap).
+
 ## Health check
 
 `GET /api/health` returns `{"ok":true,"db":true}` when the app and the database answer. Docker uses it, and any uptime monitor can too.

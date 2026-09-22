@@ -1,11 +1,20 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Brand } from "@/components/Brand";
 import { ProductCard } from "@/components/ProductCard";
 import { ProductPreview } from "@/components/ProductPreview";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getCategories } from "@/lib/catalog";
 import { getDict, isLocale } from "@/lib/i18n";
+import { localeAlternates } from "@/lib/seo";
+import { localBusinessJsonLd } from "@/lib/structured-data";
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  return isLocale(locale) ? { alternates: localeAlternates(locale, "") } : {};
+}
 
 const FEATURED = ["drapeau-pays", "guirlande-pays", "fanion-table", "banderole-texte", "oriflamme-drapeau", "beach-flag"];
 
@@ -19,6 +28,7 @@ export default async function Home({ params }: { params: Promise<{ locale: strin
 
   return (
     <>
+      <JsonLd data={localBusinessJsonLd(locale)} />
       <section className="relative overflow-hidden bg-ink text-white">
         <div className="pointer-events-none absolute -end-40 -top-40 h-[520px] w-[520px] rounded-full bg-brand/30 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-52 start-10 h-[420px] w-[420px] rounded-full bg-gold/20 blur-3xl" />

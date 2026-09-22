@@ -3,6 +3,14 @@ export const SHOP = {
   name: "Tex Banner",
   legalName: "Sté Tex Banner",
   address: "38 Rue Ibn El Moatez, Borj Zouara, Bab Saadoune 1029 Tunis",
+  // Same address split up, for the schema.org markup search engines read.
+  street: "38 Rue Ibn El Moatez, Borj Zouara, Bab Saadoune",
+  postalCode: "1029",
+  locality: "Tunis",
+  country: "TN",
+  /** Opening hours in schema.org form, e.g. ["Mo-Fr 08:30-17:30", "Sa 08:30-13:00"].
+   *  Left empty until confirmed: publishing wrong hours is worse than publishing none. */
+  hours: [] as string[],
   phone: "71 576 701",
   mobile: "98 619 811",
   email: "ste.texbanner@gmail.com",
