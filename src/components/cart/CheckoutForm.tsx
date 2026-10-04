@@ -53,8 +53,10 @@ export function CheckoutForm({ locale, t }: { locale: "fr" | "ar"; t: Pick<Dict,
         window.location.assign(data.orderUrl);
         return;
       }
+      // One message per cause: "une erreur est survenue" for everything leaves the
+      // customer with nothing to act on, and us with nothing to diagnose.
       setBadFields((data.issues ?? []).map((p: string) => p.replace("customer.", "")));
-      setError(c.error);
+      setError(res.status === 429 ? c.errorBusy : res.status === 409 ? c.errorCart : res.status === 400 ? c.errorFields : c.error);
     } catch {
       setError(c.error);
     }

@@ -81,6 +81,12 @@ export async function POST(req: Request) {
     console.error("[checkout] konnect init failed", order.number, e);
     await db.update(schema.orders).set({ status: "PAYMENT_FAILED" }).where(eq(schema.orders.id, order.id));
     // The order exists: send the customer to its page, where they can retry payment.
-    return NextResponse.json({ error: "Payment unavailable", orderUrl: `/${locale}/commande/${order.accessToken}` }, { status: 502 });
+    //
+    // Deliberately NOT a 5xx. A proxy in front of the app (Cloudflare, in our case) may replace
+    // the body of a 502 with its own gateway-error page; the browser then never sees orderUrl and
+    // the customer is stranded on the checkout form while their order sits invisible in the
+    // database. The request itself succeeded — an order was created — so it answers 200 and says
+    // in the payload that payment could not be started.
+    return NextResponse.json({ error: "payment_unavailable", orderUrl: `/${locale}/commande/${order.accessToken}` });
   }
 }
