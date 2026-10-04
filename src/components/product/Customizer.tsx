@@ -29,6 +29,9 @@ type Props = {
   quoteThreshold?: number;
 };
 
+/** next/image can optimise neither a blob: URL nor our upload route; those need a plain <img>. */
+const isLocal = (src: string) => src.startsWith("blob:") || src.startsWith("/api/");
+
 export function Customizer({ locale, product, t, customFlags = [], hiddenFlags = [], quoteThreshold = 20 }: Props) {
   const { add } = useCart();
   const router = useRouter();
@@ -62,12 +65,22 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
     }
   }, [product, selectionsWithUploads, locale, customFlags, hiddenFlags]);
 
-  const logoUrl = Object.values(files).find((f) => f?.localUrl)?.localUrl ?? null;
+  // The artwork the customer just uploaded, twice over: the blob is instant and free on this page,
+  // the /api/ URL is what the cart and the order page can still resolve tomorrow.
+  const uploaded = Object.values(files).find((f) => f?.localUrl) ?? null;
+  const logoUrl = uploaded?.localUrl ?? null;
+  const uploadImage = uploaded ? `/api/uploads/${uploaded.id}/preview` : null;
+
   const choiceImage = product.options
     .filter((o) => o.type === "select")
     .map((o) => (o.type === "select" ? o.choices.find((c) => c.value === selections[o.key])?.image : undefined))
     .find(Boolean);
-  const mainPhoto = photo ?? choiceImage ?? product.images[0];
+  // Products without a generated preview show a photo; once the customer uploads their own design,
+  // that design is what they came to see, so it takes the main slot until they click another thumbnail.
+  const thumbs = [...(logoUrl ? [logoUrl] : []), ...product.images];
+  const mainPhoto = photo ?? logoUrl ?? choiceImage ?? product.images[0];
+  // What the cart keeps: never the blob, which would be a broken image after a reload.
+  const cartImage = (photo && !isLocal(photo) ? photo : choiceImage ?? product.images[0]) ?? null;
   const bulk = quantity >= quoteThreshold;
 
   function addToCart(): boolean {
@@ -90,7 +103,8 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
       nameFr: product.nameFr,
       nameAr: product.nameAr,
       preview: product.preview,
-      image: mainPhoto ?? null,
+      image: cartImage,
+      uploadImage,
       unitPrice,
       quantity,
       selections: visibleSelections,
@@ -112,11 +126,16 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
           {product.preview && !photo ? (
             <ProductPreview kind={product.preview} selections={selections} logoUrl={logoUrl} className="h-full w-full" title={name} />
           ) : mainPhoto ? (
-            <Image src={mainPhoto} alt={name} fill sizes="(max-width: 1024px) 100vw, 55vw" className="object-contain" priority />
+            isLocal(mainPhoto) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={mainPhoto} alt={name} className="absolute inset-0 h-full w-full object-contain" />
+            ) : (
+              <Image src={mainPhoto} alt={name} fill sizes="(max-width: 1024px) 100vw, 55vw" className="object-contain" priority />
+            )
           ) : null}
         </div>
         {product.preview && <p className="mt-2 text-xs text-stone-500">{t.previewNote}</p>}
-        {(product.images.length > 0 || product.preview) && (product.images.length > 1 || product.preview) && (
+        {(product.preview || thumbs.length > 1) && (
           <div className="mt-4">
             <p className="mb-2 text-xs font-bold text-stone-500 uppercase">{t.photos}</p>
             <div className="flex flex-wrap gap-2">
@@ -125,9 +144,14 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
                   <ProductPreview kind={product.preview} selections={selections} logoUrl={logoUrl} className="h-full w-full" />
                 </button>
               )}
-              {product.images.map((src) => (
-                <button key={src} type="button" onClick={() => setPhoto(src)} className={`relative h-16 w-20 overflow-hidden rounded-lg ring-2 ${photo === src || (!product.preview && !photo && mainPhoto === src) ? "ring-brand" : "ring-stone-200"}`}>
-                  <Image src={src} alt="" fill sizes="80px" className="object-cover" />
+              {thumbs.map((src) => (
+                <button key={src} type="button" onClick={() => setPhoto(src)} className={`relative h-16 w-20 overflow-hidden rounded-lg bg-white ring-2 ${photo === src || (!product.preview && !photo && mainPhoto === src) ? "ring-brand" : "ring-stone-200"}`}>
+                  {isLocal(src) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={src} alt="" className="absolute inset-0 h-full w-full object-contain" />
+                  ) : (
+                    <Image src={src} alt="" fill sizes="80px" className="object-cover" />
+                  )}
                 </button>
               ))}
             </div>
@@ -170,7 +194,7 @@ export function Customizer({ locale, product, t, customFlags = [], hiddenFlags =
                   ))}
                 {o.type === "upload" && (
                   <div className={isMissing ? "rounded-lg ring-2 ring-brand" : ""}>
-                    <UploadField id={id} value={files[o.key] ?? null} onChange={(f) => { setFiles((x) => ({ ...x, [o.key]: f })); setAdded(false); setMissing(null); }} t={{ hint: t.uploadHint, uploading: t.uploading, uploaded: t.uploaded, remove: t.remove, error: t.uploadError }} />
+                    <UploadField id={id} value={files[o.key] ?? null} onChange={(f) => { setFiles((x) => ({ ...x, [o.key]: f })); setPhoto(null); setAdded(false); setMissing(null); }} t={{ hint: t.uploadHint, uploading: t.uploading, uploaded: t.uploaded, remove: t.remove, error: t.uploadError }} />
                   </div>
                 )}
               </div>

@@ -10,6 +10,11 @@ export type CartLine = {
   nameAr: string;
   preview: string | null;
   image: string | null;
+  /**
+   * The customer's own artwork, as a URL that survives a reload: /api/uploads/<id>/preview.
+   * Never a blob: URL — those die with the page that made them, and the cart outlives it.
+   */
+  uploadImage?: string | null;
   /** Indicative unit price shown in the UI; the server re-prices on checkout */
   unitPrice: number;
   quantity: number;

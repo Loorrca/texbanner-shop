@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { db, schema } from "@/db";
 import { OrderAutoRefresh, RetryPayment } from "@/components/OrderLive";
@@ -26,6 +26,14 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
     } catch (e) {
       console.error("[order page] sync failed", order.number, e);
     }
+  }
+
+  // The files the customer attached, so the order page can show them their own artwork rather than
+  // a bare paperclip. Keyed by upload id, which is what the resolved "upload" selection carries.
+  const attached = new Map<string, { name: string; previewable: boolean }>();
+  if (order.items.length) {
+    const rows = await db.query.uploads.findMany({ where: inArray(schema.uploads.orderItemId, order.items.map((i) => i.id)) });
+    for (const u of rows) attached.set(u.id, { name: u.originalName, previewable: u.mime.startsWith("image/") });
   }
 
   const t = getDict(locale);
@@ -62,7 +70,18 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                   {item.selections.filter((s) => s.type !== "upload").map((s) => (
                     <li key={s.key}>{s.label}: <span dir="auto">{s.valueLabel}</span></li>
                   ))}
-                  {item.selections.some((s) => s.type === "upload") && <li>📎 {locale === "ar" ? "ملف مرفق" : "Fichier joint"}</li>}
+                  {item.selections.filter((s) => s.type === "upload").map((s) => {
+                    const file = attached.get(s.value);
+                    return (
+                      <li key={s.key} className="mt-1 flex items-center gap-2">
+                        {file?.previewable && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={`/api/uploads/${s.value}/preview`} alt="" className="h-12 w-12 rounded bg-white object-contain ring-1 ring-stone-200" />
+                        )}
+                        <span dir="auto">📎 {file?.name ?? (locale === "ar" ? "ملف مرفق" : "Fichier joint")}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
               <span className="font-semibold">{formatTND(item.unitPrice * item.quantity, locale)}</span>
